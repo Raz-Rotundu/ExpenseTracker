@@ -1,9 +1,18 @@
 package com.lumius.ExpenseTracker;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -22,6 +31,10 @@ public class ExpenseList {
 	
 	private ExpenseList() {
 		list = new ArrayList<ExpenseRecord>();
+	}
+	
+	private ExpenseList(List<ExpenseRecord> inlist) {
+		list = inlist;
 	}
 	
 	/**
@@ -104,12 +117,45 @@ public class ExpenseList {
 	}
 	
 	public String getSummary(int month){
-		
+		Optional<Integer> sum = list.stream()
+				.filter(k -> k.timeCreated().getMonthValue() == month)
+				.map(ExpenseRecord::amount)
+				.reduce((t, a) -> t + a);
+		if(sum.isEmpty()) {
+			return "There are no entries this month";
+		} else {
+			return(String.format("Total expenses for %s: $%d", Month.of(month), sum));
+		}
 		
 	}
 	
-	public ExpenseList importCSV (Path location) {
-		
+	public Optional<List<ExpenseRecord>> importCSV (Path location) {
+		try{
+			Headers[] HEADERS= {Headers.id, Headers.timeCreated, Headers.description, Headers.amount};
+			CSVFormat csvformat = CSVFormat.DEFAULT.builder()
+					.setHeader(Headers.class)
+					.setSkipHeaderRecord(true)
+					.get();
+			
+			Iterable<CSVRecord> records = csvformat.parse(Files.newBufferedReader(Path.of("./expenses.csv")));
+			
+			List<ExpenseRecord> newlist = new ArrayList<>();
+			
+			for(CSVRecord r : records) {
+				int id = Integer.valueOf(r.get("id"));
+				LocalDateTime timeCreated = LocalDateTime.parse(r.get(Headers.timeCreated));
+				String description = r.get(Headers.description);
+				int amount = Integer.valueOf(r.get(Headers.amount));
+				
+				ExpenseRecord expense = new ExpenseRecord(id, timeCreated, description, amount);
+				newlist.add(expense);
+			}
+			return Optional.of(newlist);
+			
+		} catch(IOException e) {
+			e.printStackTrace();
+			return Optional.empty();
+		}
 	}
 	
 	public void exportCSV (Path destination) {
