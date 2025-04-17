@@ -1,10 +1,12 @@
 package com.lumius.ExpenseTracker;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.Month;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -12,6 +14,7 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -23,7 +26,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @author Razvan Rotundu
  */
 public class ExpenseList {
+	private static final Headers[] HEADERS = {Headers.id, Headers.timeCreated, Headers.description, Headers.amount};
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+	private static final CSVFormat CSVFORMAT = CSVFormat.DEFAULT.builder()
+			.setHeader(Headers.class)
+			.setSkipHeaderRecord(true)
+			.get();
+	private static final DateTimeFormatter TIMEFORMAT= DateTimeFormatter.ofPattern("dd-MM-yy HH:mm:ss");
 	
 	private static ExpenseList instance;
 	
@@ -116,6 +125,11 @@ public class ExpenseList {
 
 	}
 	
+	/**
+	 * Returns a single sentence summary of all expenses within given month
+	 * @param month numerical value of a month (Eg 8 = August)
+	 * @return A string representing total expenses for given month
+	 */
 	public String getSummary(int month){
 		Optional<Integer> sum = list.stream()
 				.filter(k -> k.timeCreated().getMonthValue() == month)
@@ -129,15 +143,16 @@ public class ExpenseList {
 		
 	}
 	
+	/**
+	 * Reads in a CSV representation of expenses, and parses it into a list of expense records
+	 * @param location the path to the csv file
+	 * @return A list of ExpenseRecords, or null if exception
+	 */
 	public Optional<List<ExpenseRecord>> importCSV (Path location) {
 		try{
-			Headers[] HEADERS= {Headers.id, Headers.timeCreated, Headers.description, Headers.amount};
-			CSVFormat csvformat = CSVFormat.DEFAULT.builder()
-					.setHeader(Headers.class)
-					.setSkipHeaderRecord(true)
-					.get();
+
 			
-			Iterable<CSVRecord> records = csvformat.parse(Files.newBufferedReader(Path.of("./expenses.csv")));
+			Iterable<CSVRecord> records = CSVFORMAT.parse(Files.newBufferedReader(Path.of("./expenses.csv")));
 			
 			List<ExpenseRecord> newlist = new ArrayList<>();
 			
@@ -158,8 +173,33 @@ public class ExpenseList {
 		}
 	}
 	
+	/**
+	 * Writes the values of all expense records currently in the list to a csv file
+	 * @param destination the destination file for writing the csv
+	 */
 	public void exportCSV (Path destination) {
-		
+		try {
+			if(!(Files.exists(destination))){
+				Files.createFile(destination);
+			}
+			BufferedWriter writer = Files.newBufferedWriter(destination);
+			CSVPrinter printer = new CSVPrinter(writer, CSVFORMAT);
+			
+			list.stream().forEach(e -> {
+				try {
+					printer.printRecord(e.id(), e.timeCreated(), e.desc(), e.amount());
+				}
+				catch(IOException x) {
+					System.out.println("IO error in exportCSV stream");
+					x.printStackTrace();
+				}
+			});
+		}
+		catch(IOException e) {
+			System.out.println("exportCSV IO error");
+			e.printStackTrace();
+		}
+
 	}
 	
 	/**
@@ -178,7 +218,7 @@ public class ExpenseList {
 	}
 	
 	/**
-	 * Deserializes aninstance of ExpenseList
+	 * Deserializes an instance of ExpenseList
 	 * @param json the JSON representation of an ExpenseLIst object
 	 * @return an ExpenseList object
 	 */
