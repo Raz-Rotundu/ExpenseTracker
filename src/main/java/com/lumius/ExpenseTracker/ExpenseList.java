@@ -4,6 +4,7 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.format.DateTimeFormatter;
@@ -31,10 +32,16 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 public class ExpenseList {
 	private static final Headers[] HEADERS = {Headers.id, Headers.timeCreated, Headers.description, Headers.amount};
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
-	private static final CSVFormat CSVFORMAT = CSVFormat.DEFAULT.builder()
+	private static final CSVFormat WRITERCSVFORMAT = CSVFormat.DEFAULT.builder()
+			.setHeader(Headers.class)
+//			.setSkipHeaderRecord(true)
+			.get();
+	
+	private static final CSVFormat READERCSVFORMAT = CSVFormat.DEFAULT.builder()
 			.setHeader(Headers.class)
 			.setSkipHeaderRecord(true)
 			.get();
+	public static final DateTimeFormatter DATETIMEFORMAT = DateTimeFormatter.ofPattern("yy-MM-dd");
 	
 	private static ExpenseList instance;
 	
@@ -166,17 +173,18 @@ public class ExpenseList {
 	 * @param location the path to the csv file
 	 * @return A list of ExpenseRecords, or null if exception
 	 */
-	public Optional<List<ExpenseRecord>> importCSV (Path location) {
+	public static Optional<List<ExpenseRecord>> importCSV (Path location) {
 		try{
-
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yy-MM-dd");
 			
-			Iterable<CSVRecord> records = CSVFORMAT.parse(Files.newBufferedReader(Path.of("./expenses.csv")));
+			Iterable<CSVRecord> records = READERCSVFORMAT.parse(Files.newBufferedReader(Path.of("./expenses.csv")));
 			
 			List<ExpenseRecord> newlist = new ArrayList<>();
 			
 			for(CSVRecord r : records) {
 				int id = Integer.valueOf(r.get("id"));
-				LocalDateTime timeCreated = LocalDateTime.parse(r.get(Headers.timeCreated));
+				String str = r.get(Headers.timeCreated);
+				LocalDateTime timeCreated = LocalDate.parse(str, formatter).atStartOfDay();
 				String description = r.get(Headers.description);
 				int amount = Integer.valueOf(r.get(Headers.amount));
 				
@@ -195,17 +203,16 @@ public class ExpenseList {
 	 * Writes the values of all expense records currently in the list to a csv file
 	 * @param destination the destination file for writing the csv
 	 */
-	public void exportCSV (Path destination) {
-		try {
+	public void exportCSV (Path destination) throws IOException{
+		BufferedWriter writer = Files.newBufferedWriter(destination);
+		
+		try(CSVPrinter printer = WRITERCSVFORMAT.print(writer)) {
 			if(!(Files.exists(destination))){
 				Files.createFile(destination);
-			}
-			BufferedWriter writer = Files.newBufferedWriter(destination);
-			CSVPrinter printer = new CSVPrinter(writer, CSVFORMAT);
-			
-			list.stream().forEach(e -> {
+			}		
+			this.list.stream().forEach(e -> {
 				try {
-					printer.printRecord(e.id(), e.timeCreated(), e.desc(), e.amount());
+					printer.printRecord(e.id(), e.timeCreated().format(DATETIMEFORMAT), e.desc(), e.amount());
 				}
 				catch(IOException x) {
 					System.out.println("IO error in exportCSV stream");
