@@ -18,8 +18,10 @@ import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 
 /**
@@ -28,12 +30,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class ExpenseList {
 	private static final Headers[] HEADERS = {Headers.id, Headers.timeCreated, Headers.description, Headers.amount};
-	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
 	private static final CSVFormat CSVFORMAT = CSVFormat.DEFAULT.builder()
 			.setHeader(Headers.class)
 			.setSkipHeaderRecord(true)
 			.get();
-	private static final DateTimeFormatter TIMEFORMAT= DateTimeFormatter.ofPattern("dd-MM-yy HH:mm:ss");
 	
 	private static ExpenseList instance;
 	
@@ -139,7 +140,6 @@ public class ExpenseList {
 	 * @return A string representing total expenses for given month
 	 */
 	public String getSummary(int month){
-		//TODO delete this
 		String monthName = capitalize(Month.of(month));
 		Optional<Integer> sum = list.stream()
 				.filter(k -> k.timeCreated().getMonthValue() == month)
@@ -236,14 +236,14 @@ public class ExpenseList {
 	}
 	
 	/**
-	 * Deserializes an instance of ExpenseList
-	 * @param json the JSON representation of an ExpenseLIst object
+	 * Deserializes a list of expense records
+	 * @param json the JSON representation of a list of ExpenseRecord Objects
 	 * @return an ExpenseList object
 	 */
-	public Optional<ExpenseList> fromJSONOptional(String json) {
+	public static Optional<List<ExpenseRecord>> fromJSONOptional(String json) {
 		try {
-			instance = OBJECT_MAPPER.readValue(json, this.getClass());
-			return Optional.of(instance);
+			List<ExpenseRecord> newList = OBJECT_MAPPER.readValue(json, new TypeReference<>() {});
+			return Optional.of(newList);
 		}
 		catch(JsonProcessingException e) {
 			System.out.printf("An error occured deserializing from json: %s%n", e.getMessage());
