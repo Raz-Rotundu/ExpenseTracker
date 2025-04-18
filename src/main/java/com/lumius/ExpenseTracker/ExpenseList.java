@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+
 /**
  * ExpenseList -- A singleton class containing a list of expense items, as well as defining operations to modify them
  * @author Razvan Rotundu
@@ -66,15 +67,20 @@ public class ExpenseList {
 	}
 	
 	
-	//TODO handling a nonexistent ID
 	/**
 	 * Method to delete the expense record with the given ID out of the list
 	 * @param id the ID value of the expense to be deleted
 	 */
-	public void delete(int id) {
-		list.stream()
+	public void remove(int id) {
+		List<ExpenseRecord> newList = list.stream()
 		.filter(r -> r.id() == id)
 		.collect(Collectors.toCollection(ArrayList<ExpenseRecord>::new));
+		
+		if(newList.size() == list.size()) {
+			System.out.println("ID not in list!");
+		} else {
+			list = newList;
+		}
 	}
 	
 	/**
@@ -87,11 +93,13 @@ public class ExpenseList {
 		}
 		else {
 			StringBuilder out = new StringBuilder();
-			out.append("ID  Date       Description  Amount");
-			out.append("----------------------------------");
+			out.append(String.format("ID  Date        Description  Amount%n"));
+			out.append(String.format("-----------------------------------%n"));
 			
 			list.stream()
-			.forEach(out::append);
+			.forEach(e -> {
+				out.append(e.toString());
+			});
 			
 			return out.toString();
 		}
@@ -131,18 +139,28 @@ public class ExpenseList {
 	 * @return A string representing total expenses for given month
 	 */
 	public String getSummary(int month){
+		//TODO delete this
+		String monthName = capitalize(Month.of(month));
 		Optional<Integer> sum = list.stream()
 				.filter(k -> k.timeCreated().getMonthValue() == month)
 				.map(ExpenseRecord::amount)
 				.reduce((t, a) -> t + a);
 		if(sum.isEmpty()) {
-			return "There are no entries this month";
+			return(String.format("There are no entries for the month of %s", monthName));
 		} else {
-			return(String.format("Total expenses for %s: $%d", Month.of(month), sum));
+			return(String.format("Total expenses for %s: $%d", monthName, sum.get()));
 		}
 		
 	}
-	
+	/**
+	 * Helper method to capitalize the month names
+	 * @param in a Month object
+	 * @return A string representation of the month's name capitalized
+	 */
+	private String capitalize(Month in) {
+		String s = in.toString().toLowerCase();
+		return s.substring(0, 1).toUpperCase() + s.substring(1);
+	}
 	/**
 	 * Reads in a CSV representation of expenses, and parses it into a list of expense records
 	 * @param location the path to the csv file
@@ -206,7 +224,7 @@ public class ExpenseList {
 	 * Serializes this singleton instance
 	 * @return an Optional containing the Sting representation of this instance
 	 */
-	public Optional<String> toJSON() {
+	public Optional<String> toJSONOptional() {
 		try {
 			String json = OBJECT_MAPPER.writeValueAsString(this.list);
 			return Optional.of(json);
@@ -222,7 +240,7 @@ public class ExpenseList {
 	 * @param json the JSON representation of an ExpenseLIst object
 	 * @return an ExpenseList object
 	 */
-	public Optional<ExpenseList> fromJSON(String json) {
+	public Optional<ExpenseList> fromJSONOptional(String json) {
 		try {
 			instance = OBJECT_MAPPER.readValue(json, this.getClass());
 			return Optional.of(instance);
