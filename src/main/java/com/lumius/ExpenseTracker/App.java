@@ -1,9 +1,13 @@
 package com.lumius.ExpenseTracker;
 
-import java.io.IOException;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
-import java.util.List;
+
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 
 /**
  * ExpenseTracker application -- track expenses at the command line, save the values, import and export to CSV
@@ -15,23 +19,59 @@ public class App
 	
     public static void main( String[] args )
     {
-    	ExpenseList list = ExpenseList.getInstance();
+    	//Definition
+    	Options options = new Options();
     	
-    	list.add(new ExpenseRecord(0, LocalDateTime.now(), "Test0", 000));
-    	list.add(new ExpenseRecord(1, LocalDateTime.now(), "Test1", 100));
-    	list.add(new ExpenseRecord(2, LocalDateTime.now(), "Test2", 200));
+    	//Primary action
+    	String primaryAction = args[0];
+    	
+    	//Additional options
+    	Option description = Option.builder("d")
+    			.longOpt("description")
+    			.hasArg()
+                .argName("description")
+                .desc("Description of the expense")
+                .build();
+    	options.addOption(description);
+    	
+    	Option amount = Option.builder("a")
+    			.longOpt("amount")
+    			.hasArg()
+                .argName("amount")
+                .desc("Amount of money spent")
+                .build();
+    	options.addOption(amount);
+    	
+    	Option id = Option.builder("i")
+    			.longOpt("is")
+    			.hasArg()
+                .argName("ID")
+                .desc("ID of existing expense record in the system")
+                .build();
+    	options.addOption(id);
+    	
+    	Option month = Option.builder("m")
+    			.longOpt("month")
+    			.hasArg()
+                .argName("Month")
+                .desc("Month number (Eg. Aug = 8)")
+                .build();
+    	options.addOption(month);
+    	
+    	//Parsing
+    	DefaultParser parser = new DefaultParser();
     	
     	try {
-        	list.exportCSV(csvPath);
-        	System.out.println("CSV Exported?");
-        	
-        	List<ExpenseRecord> records = ExpenseList.importCSV(csvPath).get();
-        	records.stream()
-        	.forEach(System.out::println);
+        	CommandLine cmd = parser.parse(options, args);
+        	//TODO
+        	//Interrogation
     	}
-    	catch(IOException e) {
-    		e.printStackTrace();
+    	catch(ParseException e) {
+    		System.out.printf("Error parsing command line: %s%n", e.getMessage());
     	}
+
+    	
+
     	
     }
 }
