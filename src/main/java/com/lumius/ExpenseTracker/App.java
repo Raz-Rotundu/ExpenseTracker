@@ -1,7 +1,7 @@
 package com.lumius.ExpenseTracker;
 
 import java.nio.file.Path;
-
+import java.time.LocalDateTime;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
@@ -17,13 +17,30 @@ public class App
 {
 	public static Path csvPath = Path.of("./expenses.csv");
 	
+	public static final String ERRORMSG = String.format("Usage: expensetracker + one of:%n"
+			+ "\tadd%n"
+			+ "\tdelete%n"
+			+ "\tlist%n"
+			+ "\tsummary%n"
+			+ "\texport");
+	
     public static void main( String[] args )
     {
+    	// The event list
+    	ExpenseList list = ExpenseList.getInstance();
+    	
     	//Definition
     	Options options = new Options();
     	
     	//Primary action
-    	String primaryAction = args[0];
+    	String primaryAction = "";
+    	if(args.length != 0) {
+        	primaryAction += args[0];
+    	} else {
+    		System.out.println(ERRORMSG);
+    		return;
+    	}
+
     	
     	//Additional options
     	Option description = Option.builder("d")
@@ -43,7 +60,7 @@ public class App
     	options.addOption(amount);
     	
     	Option id = Option.builder("i")
-    			.longOpt("is")
+    			.longOpt("id")
     			.hasArg()
                 .argName("ID")
                 .desc("ID of existing expense record in the system")
@@ -63,8 +80,60 @@ public class App
     	
     	try {
         	CommandLine cmd = parser.parse(options, args);
-        	//TODO
         	//Interrogation
+        	switch(primaryAction) {
+        	case("add"):
+        		System.out.println("add mode");
+        	
+        		if(cmd.hasOption("d") && (cmd.hasOption("a"))) {
+        			// Amount and description
+        			String newDesc = cmd.getOptionValue("d");
+        			Integer newAmount = Integer.valueOf(cmd.getOptionValue("a") );
+        			
+        			//Make a unique-ish ID
+        			Number newOffset = Float.valueOf(String.format("%.2f", Math.random())) * 100 ;
+        			Integer newId = list.getSize() + newOffset.intValue();
+
+        			//Date
+        			LocalDateTime dateCreated = LocalDateTime.now();
+        			
+        			//Create and add object
+        			ExpenseRecord record = new ExpenseRecord(newId, dateCreated, newDesc, newAmount);
+        			list.add(record);
+        			System.out.printf("Expense added successfully (ID: %d)%n", newId);
+        			
+        			// Save list to json
+        			list.saveList();
+        			
+        		} else {
+        			System.out.println("Usage: expensetracker add --description --amount");
+        		}
+        		break;
+        	case("delete"):
+        		if(cmd.hasOption("i")) {
+        			int remid = Integer.valueOf(cmd.getOptionValue("i"));
+        			list.remove(remid);
+        			list.saveList();
+        			System.out.println("Expense deleted successfully");
+        			
+        		}else {
+        			System.out.println("Usage: expensetracker delete --id");
+        		}
+        		System.out.println("delete mode");
+        		break;
+        	case("list"):
+        		System.out.println(list.getAll());
+        		break;
+        	case("summary"):
+        		System.out.println("summary mode");
+        		break;
+        	case("export"):
+        		System.out.println("export mode");
+        		break;
+        	default:
+        		System.out.println(ERRORMSG);
+        		break;
+        	}
     	}
     	catch(ParseException e) {
     		System.out.printf("Error parsing command line: %s%n", e.getMessage());

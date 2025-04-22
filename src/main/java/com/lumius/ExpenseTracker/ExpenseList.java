@@ -43,12 +43,23 @@ public class ExpenseList {
 			.get();
 	public static final DateTimeFormatter DATETIMEFORMAT = DateTimeFormatter.ofPattern("yy-MM-dd");
 	
+	private static final Path JSONPATH = Path.of("./expenses.json");
+	private static final Path CSVPATH = Path.of("./expenses.csv");
+	
 	private static ExpenseList instance;
 	
 	private List<ExpenseRecord> list;
 	
 	private ExpenseList() {
-		list = new ArrayList<ExpenseRecord>();
+		if(Files.exists(JSONPATH)){
+			System.out.println("Loaded from JSON!");
+			loadList();
+		}else if (Files.exists(CSVPATH)){
+			System.out.println("Loaded from existing CSV");
+			list = importCSV(CSVPATH).get();
+		} else {
+			list = new ArrayList<ExpenseRecord>();
+		}
 	}
 	
 	private ExpenseList(List<ExpenseRecord> inlist) {
@@ -81,7 +92,7 @@ public class ExpenseList {
 	 */
 	public void remove(int id) {
 		List<ExpenseRecord> newList = list.stream()
-		.filter(r -> r.id() == id)
+		.filter(r -> r.id() != id)
 		.collect(Collectors.toCollection(ArrayList<ExpenseRecord>::new));
 		
 		if(newList.size() == list.size()) {
@@ -177,7 +188,7 @@ public class ExpenseList {
 		try{
 			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yy-MM-dd");
 			
-			Iterable<CSVRecord> records = READERCSVFORMAT.parse(Files.newBufferedReader(Path.of("./expenses.csv")));
+			Iterable<CSVRecord> records = READERCSVFORMAT.parse(Files.newBufferedReader(CSVPATH));
 			
 			List<ExpenseRecord> newlist = new ArrayList<>();
 			
@@ -243,6 +254,32 @@ public class ExpenseList {
 	}
 	
 	/**
+	 * Saves the current instance of the Expense list to a json file
+	 */
+	public void saveList() {
+		Optional<String> s = toJSONOptional();
+		try {
+			Files.write(JSONPATH, s.get().getBytes());
+		}
+		catch(IOException e) {
+			System.out.printf("Error printing to %s%n", JSONPATH.toString());
+		}
+	}
+	
+	/*
+	 * Deserializes an expenselist from the given json file
+	 */
+	public void loadList() {
+		try {
+			Optional<List<ExpenseRecord>> fileListOptional = fromJSONOptional(Files.readString(JSONPATH));
+			list = fileListOptional.get();
+		}
+		catch(IOException e) {
+			System.out.printf("Error reading string from %s", JSONPATH.toString());
+		}
+
+	}
+	/**
 	 * Deserializes a list of expense records
 	 * @param json the JSON representation of a list of ExpenseRecord Objects
 	 * @return an ExpenseList object
@@ -273,5 +310,13 @@ public class ExpenseList {
 	 */
 	public void setList(List<ExpenseRecord> list) {
 		this.list = list;
+	}
+	
+	/**
+	 * Returns the size of the events list
+	 * @return integer number of elements in the event list
+	 */
+	public int getSize() {
+		return this.list.size();
 	}
 }
