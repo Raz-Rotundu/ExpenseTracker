@@ -1,5 +1,6 @@
 package com.lumius.ExpenseTracker;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 
@@ -125,10 +126,23 @@ public class App
         		System.out.println(list.getAll());
         		break;
         	case("summary"):
+        		if(cmd.hasOption("m")) {
+        			int m = Integer.valueOf(cmd.getOptionValue("m"));
+        			System.out.println(list.getSummary(m));
+        		} else {
+        			System.out.println(list.getSummary());
+        		}
         		System.out.println("summary mode");
         		break;
         	case("export"):
-        		System.out.println("export mode");
+        		try {
+            		list.exportCSV(csvPath);
+            		System.out.printf("Data exported to %s", csvPath.toString());
+        		}
+            	catch(IOException e ){
+            			e.printStackTrace();
+            		}
+
         		break;
         	default:
         		System.out.println(ERRORMSG);
